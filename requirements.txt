@@ -1,0 +1,16 @@
+elasticsearch 
+opensearch-py
+sentence-transformers
+tika 
+python-docx
+PyMuPDF
+pandas
+opencv-python   # Procesar imágenes con OpenCV
+torch          # Framework para modelos de deep learning
+moviepy       # Extraer fotogramas de videos
+numpy          # Manejo de matrices para embeddings
+scipy          # Cálculo de similitud de embeddings
+fastapi       # (Opcional) Para convertirlo en una API web
+uvicorn       # (Opcional) Servidor para FastAPI
+pillow
+transformers
