@@ -14,3 +14,4 @@ fastapi       # (Opcional) Para convertirlo en una API web
 uvicorn       # (Opcional) Servidor para FastAPI
 pillow
 transformers
+sumy

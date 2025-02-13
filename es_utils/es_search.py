@@ -6,21 +6,20 @@ index_name = "multimedia"
 embedding_model = SentenceTransformer("sentence-transformers/distiluse-base-multilingual-cased")
 
 def search_files(query):
-    """ Búsqueda híbrida optimizada: semántica + texto exacto + autocompletado."""
-    
+    """ Búsqueda optimizada para mejorar precisión y encontrar coincidencias exactas."""
     query = query.lower()
     query_vector = embedding_model.encode(query).tolist()
     
     search_query = {
-        "size": 15,  # Aumentamos la cantidad de resultados para mejorar precisión
+        "size": 15,  # Aumentamos el número de resultados para mejorar precisión
         "query": {
             "bool": {
                 "should": [
-                    {  # 🔍 Coincidencia exacta en el contenido
+                    {  # 🔍 Coincidencia exacta en el contenido (prioridad más alta)
                         "match_phrase": {
                             "content": {
                                 "query": query,
-                                "boost": 3
+                                "boost": 5  # Aumentamos el peso para coincidencias exactas
                             }
                         }
                     },
@@ -28,33 +27,33 @@ def search_files(query):
                         "match_phrase": {
                             "file_name": {
                                 "query": query,
-                                "boost": 2.5
+                                "boost": 3  # Más peso, pero menos que el contenido
                             }
                         }
                     },
-                    {  # 🔍 Búsqueda por embeddings
+                    {  # 🔍 Búsqueda semántica (vector embeddings), pero con MENOS peso
                         "script_score": {
                             "query": {"match_all": {}},
                             "script": {
-                                "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
+                                "source": "cosineSimilarity(params.query_vector, 'vector') + 0.5",
                                 "params": {"query_vector": query_vector}
                             }
                         }
                     },
-                    {  # 🔍 Búsqueda difusa con mayor tolerancia a errores
+                    {  # 🔍 Búsqueda difusa con MENOS peso (para tolerancia de errores)
                         "match": {
                             "content": {
                                 "query": query,
-                                "fuzziness": "AUTO",  # 🔥 Permite más errores tipográficos
-                                "boost": 1.2
+                                "fuzziness": "1",  # 🔥 Permitimos solo 1 error en la palabra
+                                "boost": 1.5
                             }
                         }
                     },
-                    {  # 🔍 Autocompletado en nombres de archivos
+                    {  # 🔍 Coincidencias parciales en contenido (prefijo)
                         "match_phrase_prefix": {
-                            "file_name": {
+                            "content": {
                                 "query": query,
-                                "boost": 1.5
+                                "boost": 2  # Más peso para encontrar términos parciales
                             }
                         }
                     }
@@ -65,7 +64,7 @@ def search_files(query):
     }
 
     response = es.search(index=index_name, body=search_query)
-
+    
     results = [
         {
             "name": hit["_source"]["file_name"],
