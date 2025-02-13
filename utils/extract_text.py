@@ -15,16 +15,18 @@ def extract_text(file_path):
                 return f.read()
         elif ext == ".pdf":
             doc = fitz.open(file_path)
-            return "\n".join([page.get_text() for page in doc])
+            text = "\n".join([page.get_text("text") for page in doc])
+            return text if text.strip() else None
         elif ext == ".docx":
             doc = docx.Document(file_path)
-            return "\n".join([para.text for para in doc.paragraphs])
+            text = "\n".join([para.text for para in doc.paragraphs])
+            return text if text.strip() else None
         elif ext == ".csv":
             df = pd.read_csv(file_path)
             return df.to_string()
         else:
             parsed = parser.from_file(file_path)
-            return parsed["content"]
+            return parsed["content"] if parsed["content"] else None
     except Exception as e:
-        print(f"Error procesando {file_path}: {e}")
+        print(f"❌ Error procesando {file_path}: {e}")
         return None

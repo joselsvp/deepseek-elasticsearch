@@ -1,21 +1,20 @@
 from es_utils import search_files
 
 def main():
-    print("\n📂 Motor de Búsqueda Híbrido (Texto, Imágenes, Videos)")
-    
+    print("\n📂 Motor de Búsqueda con Lenguaje Natural (IA)")
+
     while True:
         query = input("🔍 Ingresa tu consulta de búsqueda (o 'salir' para terminar): ")
         if query.lower() == "salir":
             break
 
-        file_type = input("📌 Filtrar por tipo de archivo (ejemplo: pdf, txt, docx) o presiona Enter: ")
-
-        results = search_files(query, file_type if file_type else None)
+        results = search_files(query)
 
         if results:
             print("\n🔎 Resultados de búsqueda:")
-            for name, path, score in results:
-                print(f"📌 {name} - {path} (Score: {score:.2f})")
+            for result in results:
+                print(f"\n📌 {result['name']} - {result['path']} (Tamaño: {result['size']} bytes, Modificado: {result['modified_time']}, Score: {result['score']:.2f})")
+                print(f"📝 Fragmento: {result['preview']}")
         else:
             print("⚠️ No se encontraron coincidencias.")
 

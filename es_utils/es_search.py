@@ -1,20 +1,38 @@
 from elasticsearch import Elasticsearch
-from models.text_model import get_text_embedding
+from sentence_transformers import SentenceTransformer
 
 es = Elasticsearch("http://localhost:9200/")
 index_name = "multimedia"
+embedding_model = SentenceTransformer("sentence-transformers/distiluse-base-multilingual-cased")
 
-def search_files(query, file_type=None):
-    """Búsqueda híbrida: combina búsqueda semántica y búsqueda tradicional."""
-
-    query_vector = get_text_embedding(query)  # Genera el embedding del texto
-
+def search_files(query):
+    """ Búsqueda híbrida optimizada: semántica + texto exacto + autocompletado."""
+    
+    query = query.lower()
+    query_vector = embedding_model.encode(query).tolist()
+    
     search_query = {
-        "size": 10,
+        "size": 15,  # Aumentamos la cantidad de resultados para mejorar precisión
         "query": {
             "bool": {
                 "should": [
-                    {  # 🔍 Búsqueda semántica con similitud coseno
+                    {  # 🔍 Coincidencia exacta en el contenido
+                        "match_phrase": {
+                            "content": {
+                                "query": query,
+                                "boost": 3
+                            }
+                        }
+                    },
+                    {  # 🔍 Coincidencia exacta en el nombre del archivo
+                        "match_phrase": {
+                            "file_name": {
+                                "query": query,
+                                "boost": 2.5
+                            }
+                        }
+                    },
+                    {  # 🔍 Búsqueda por embeddings
                         "script_score": {
                             "query": {"match_all": {}},
                             "script": {
@@ -23,11 +41,22 @@ def search_files(query, file_type=None):
                             }
                         }
                     },
-                    {  # 🔍 Búsqueda por contenido de texto
-                        "match": {"content": query}
+                    {  # 🔍 Búsqueda difusa con mayor tolerancia a errores
+                        "match": {
+                            "content": {
+                                "query": query,
+                                "fuzziness": "AUTO",  # 🔥 Permite más errores tipográficos
+                                "boost": 1.2
+                            }
+                        }
                     },
-                    {  # 🔍 Búsqueda por nombre de archivo
-                        "match": {"file_name": query}
+                    {  # 🔍 Autocompletado en nombres de archivos
+                        "match_phrase_prefix": {
+                            "file_name": {
+                                "query": query,
+                                "boost": 1.5
+                            }
+                        }
                     }
                 ],
                 "minimum_should_match": 1
@@ -35,15 +64,18 @@ def search_files(query, file_type=None):
         }
     }
 
-    # 📌 Filtrar por tipo de archivo si el usuario lo especifica
-    if file_type:
-        search_query["query"]["bool"]["filter"] = [
-            {"term": {"file_extension": file_type}}
-        ]
-
-    # 🔍 Ejecutar búsqueda en Elasticsearch
     response = es.search(index=index_name, body=search_query)
 
-    results = [(hit["_source"]["file_name"], hit["_source"]["file_path"], hit["_score"]) for hit in response["hits"]["hits"]]
+    results = [
+        {
+            "name": hit["_source"]["file_name"],
+            "path": hit["_source"]["file_path"],
+            "size": hit["_source"].get("file_size", "Desconocido"),
+            "modified_time": hit["_source"].get("modified_time", "Desconocida"),
+            "score": hit["_score"],
+            "preview": hit["_source"]["content"][:300] if "content" in hit["_source"] else "No se pudo extraer contenido"
+        }
+        for hit in response["hits"]["hits"]
+    ]
 
     return results
